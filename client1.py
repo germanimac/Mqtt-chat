@@ -1,6 +1,17 @@
 import paho.mqtt.client as mqtt
 import time
 
+import threading
+import time
+
+
+
+def envia(client):
+    chat = "mensagem"
+    while True:
+        chat = input("Enter Message:")
+        client.publish(pubtop,chat)
+
 
 ##########Defining all call back functions###################
 
@@ -14,9 +25,10 @@ def on_message(client,userdata,message):#Called when a message has been received
         print(str(message.topic),msg)
         if msg == "Stop" or msg == "stop":
             FLAG = False
-        else:
-            chat = input("Enter Message: ")
-            client.publish(pubtop,chat)
+        
+        #else:
+        #    chat = input("Enter Message: ")
+        #    client.publish(pubtop,chat)
 def on_subscribe(client, userdata,mid,granted_qos):##Called when the broker responds to a subscribe request.
     print("Subscribed:", str(mid),str(granted_qos))
 def on_unsubscirbe(client,userdata,mid):# Called when broker responds to an unsubscribe request.
@@ -26,27 +38,28 @@ def on_disconnect(client,userdata,rc):#called when the client disconnects from t
         print("Unexpected Disconnection")
 
 
-broker_address = "mqtt.eclipse.org"
+broker_address = "localhost"
 port = 1883
 
-print("Tentando conectar")
 client = mqtt.Client()
-
 client.on_subscribe = on_subscribe
 client.on_unsubscribe = on_unsubscirbe
 client.on_connect = on_connect
 client.on_message = on_message
-client.connect(broker_address,port, 200)
-
+client.connect(broker_address,port)
+threading.Thread(target=envia, args=(client, )).start()
 time.sleep(1)
 
-pubtop = "./client1"
-subtop = "./client2"
+pubtop = "/chat/client1"
+subtop = "/chat/client2"
 FLAG = True
-chat = None
 
 client.loop_start()
 client.subscribe(subtop)
+
+time.sleep(1)
+chat = input("Enter Message: ")
+client.publish(pubtop,chat)
 while True:
     if FLAG == False or chat == "Stop" or chat == "stop":
         break
