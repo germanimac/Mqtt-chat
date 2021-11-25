@@ -9,7 +9,7 @@ import time
 def envia(client):
     chat = "mensagem"
     while True:
-        chat = input("Enter Message:")
+        chat = input("Entre com sua mensagem:\n")
         client.publish(pubtop,chat)
 
 
@@ -37,7 +37,6 @@ def on_disconnect(client,userdata,rc):#called when the client disconnects from t
     if rc !=0:
         print("Unexpected Disconnection")
 
-
 broker_address = "localhost"
 port = 1883
 
@@ -47,12 +46,18 @@ client.on_unsubscribe = on_unsubscirbe
 client.on_connect = on_connect
 client.on_message = on_message
 client.connect(broker_address,port)
+
+#CENTRAL topico fixo, todos os clientes que contarem, se inscrevem nesse topico
+pubtop  = "/chat/cliente2"
+#pubtop = input("Digite seu nome:") #CENTRAL topico fixo
+#subtop = "/chat/client2"
+subtop = input("Digite para quem vc quer enviar:")
+subtop = "central"
+FLAG = True
 threading.Thread(target=envia, args=(client, )).start()
 time.sleep(1)
 
-pubtop = "/chat/client1"
-subtop = "/chat/client2"
-FLAG = True
+
 
 client.loop_start()
 client.subscribe(subtop)
