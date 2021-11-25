@@ -5,14 +5,6 @@ import threading
 import time
 
 
-
-def envia(client):
-    chat = "mensagem"
-    while True:
-        chat = input("Entre com sua mensagem:\n")
-        client.publish(pubtop,chat)
-
-
 ##########Defining all call back functions###################
 
 def on_connect(client,userdata,flags,rc):# called when the broker responds to our connection request
@@ -20,9 +12,14 @@ def on_connect(client,userdata,flags,rc):# called when the broker responds to ou
 def on_message(client,userdata,message):#Called when a message has been received on a topic that the client has subscirbed to.
     global FLAG
     global chat
-    if str(message.topic) != pubtop:
-        msg = str(message.payload.decode("utf-8"))
-        print(str(message.topic),msg)
+   # if str(message.topic) != pubtop:
+    msg = message.payload.decode("utf-8").split(",")
+    if(msg[0] != nome):
+        if(msg[1]==nome):
+            print("Privado->[%s]:%s" %(msg[0],msg[2]))
+        else:
+            print("[%s:[%s]]:%s" %(msg[1], msg[0],msg[2]))
+        #print(msg[2])
         if msg == "Stop" or msg == "stop":
             FLAG = False
         
@@ -37,8 +34,15 @@ def on_disconnect(client,userdata,rc):#called when the client disconnects from t
     if rc !=0:
         print("Unexpected Disconnection")
 
+
 broker_address = "localhost"
 port = 1883
+
+
+nome = input("Insira Nome:")
+#pac.append(nome)
+dest = input("Insira um nome ou Grupo:")
+#pac.append(dest)
 
 client = mqtt.Client()
 client.on_subscribe = on_subscribe
@@ -46,28 +50,28 @@ client.on_unsubscribe = on_unsubscirbe
 client.on_connect = on_connect
 client.on_message = on_message
 client.connect(broker_address,port)
-
-#CENTRAL topico fixo, todos os clientes que contarem, se inscrevem nesse topico
-pubtop  = "/chat/cliente2"
-#pubtop = input("Digite seu nome:") #CENTRAL topico fixo
-#subtop = "/chat/client2"
-subtop = input("Digite para quem vc quer enviar:")
-subtop = "central"
-FLAG = True
-threading.Thread(target=envia, args=(client, )).start()
+#threading.Thread(target=envia, args=(client, )).start()
 time.sleep(1)
 
 
+
+
+pubtop = dest
+subtop = dest
+FLAG = True
+chat = None
 
 client.loop_start()
 client.subscribe(subtop)
+client.subscribe(nome)
 
 time.sleep(1)
-chat = input("Enter Message: ")
-client.publish(pubtop,chat)
-while True:
-    if FLAG == False or chat == "Stop" or chat == "stop":
-        break
 
+while True:
+    chat = input("Enter Message:")
+    if(chat == "stop"):
+        pubtop = input("Insira um nome ou Grupo:")
+    msg = nome+","+pubtop+","+chat
+    client.publish(pubtop,msg)
 client.disconnect()
 client.loop_stop()
