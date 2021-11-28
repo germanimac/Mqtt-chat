@@ -32,6 +32,15 @@ class Mensagens():
     def msg_to_str(self):
         return (str(self.tipo) + "," + self.mensagem +"," + self.remetente +"," + self.destinatario)
 
+class conversa():
+    def __init__(self, nome):
+        self.nome= nome
+        self.mensagens = []
+        
+    def new_message(self, msg):
+        self.index=self.index+1
+        self.mensagens.append(msg)
+
 class Chat_mqtt():
     def __init__(self):
 
@@ -42,7 +51,7 @@ class Chat_mqtt():
         self.contatos = []
         self.pubtop = ""
         self.subtop = ""
-        
+        self.conversas = [[]]
 
     def my_user(self, nome):
         self.nome = nome
@@ -116,6 +125,14 @@ class Chat_mqtt():
         solicita.tipo = 5
         solicita.remetente = self.nome
         self.send_msg(solicita, 5)
+    
+    def resp_soli (self, nome, resposta = "sim"):
+        solicita = Mensagens()
+        solicita.destinatario =nome
+        solicita.tipo = 6
+        solicita.remetente = self.nome
+        solicita.mensagem = resposta
+        self.send_msg(solicita, 6)
 
     def finaliza(self):
         self.client.disconnect()
@@ -127,10 +144,14 @@ class Chat_mqtt():
     def adiciona_contato(self, contato):
         self.topics.append(contato)
         self.contatos.append(contato)
+        cont = conversa(contato)
+        self.conversas.append(cont)
 
     def adiciona_grupo(self, grupo):
         self.topics.append(grupo)
         self.grupos.append(grupo)
+        grup = conversa(grupo)
+        self.conversas.append(grup)
         self.client.subscribe(grupo)
     
     def deleta_grupo_contato(self, nome):
@@ -151,36 +172,27 @@ class Chat_mqtt():
         if(tipo != -1):
             msg.tipo = tipo
         self.client.publish(pubtop,msg.msg_to_str())
+    
+    def atribui_conversa(self, msg):
+        if msg.remetente == self.nome:
+            index = self.busca_conversa(msg.destinatario)
+            self.conversas[index].new_message(msg.str_to_str())
+        elif msg.destinatario == self.nome:
+            index = self.busca_conversa(msg.remetente)
+            self.conversas[index].new_message(msg.str_to_str())
+        else:
+            index = self.busca_conversa(msg.destinatario)
+            self.conversas[index].new_message(msg.str_to_str())
+   
+    def busca_conversa(self, nome):
+        x = 0
+        while self.contatos[x].nome !=nome:
+            x=x+1
+        return x
+    def consulta_conversa(self, nome):
+        index = self.busca_conversa(nome)
+        return self.conversas[index].mensagens
         
-def on_connect(self,client,userdata,flags,rc):# called when the broker responds to our connection request
-        print("Connected - rc:",rc)
 
-def on_message(client,userdata,message):#Called when a message has been received on a topic that the client has subscirbed to.
-    global FLAG
-    global chat
-    print(message)
-    msg = message.payload.decode("utf-8").split(",")
-    #self.recebe_mensagem(msg)
-
-def on_subscribe(client, userdata,mid,granted_qos):##Called when the broker responds to a subscribe request.
-    print("Subscribed:", str(mid),str(granted_qos))
-def on_unsubscirbe( client,userdata,mid):# Called when broker responds to an unsubscribe request.
-    print("Unsubscribed:",str(mid))
-def on_disconnect( client,userdata,rc):#called when the client disconnects from the broker
-    if rc !=0:
-        print("Unexpected Disconnection")
 
 ##########Defining all call back functions###################
-
-cliente1 = Chat_mqtt()
-cliente1.my_user("joao")
-cliente1.client.on_subscribe = on_subscribe
-cliente1.client.on_unsubscribe = on_unsubscirbe
-cliente1.client.on_connect = on_connect
-cliente1.client.on_message = on_message
-cliente1.client.connect("localhost",1883)
-cliente1.client.loop_start()
-
-#cliente1.main()
-cliente1.finaliza
-#
