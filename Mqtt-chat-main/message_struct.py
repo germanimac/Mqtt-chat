@@ -207,38 +207,39 @@ def envia(client):
     while True:
         msg.mensagem = input("Enter Message:")
         cliente.send_msg(msg,"pad")
+""" 
+if __name__ == "__main__":
+    nome = input("Nome do usuario:")
 
-nome = input("Nome do usuario:")
+    cliente = Chat_mqtt()
+    cliente.my_user(nome)
+    cliente.client.on_subscribe = on_subscribe
+    cliente.client.on_unsubscribe = on_unsubscirbe
+    cliente.client.on_connect = on_connect
+    cliente.client.on_message = on_message
+    cliente.client.connect("localhost",1883)
+    cliente.inicia()
 
-cliente = Chat_mqtt()
-cliente.my_user(nome)
-cliente.client.on_subscribe = on_subscribe
-cliente.client.on_unsubscribe = on_unsubscirbe
-cliente.client.on_connect = on_connect
-cliente.client.on_message = on_message
-cliente.client.connect("localhost",1883)
-cliente.inicia()
+    _topics =[]
+    _topics.append(cliente.nome)
+    cliente.consumer = KafkaConsumer(
+         bootstrap_servers=['localhost:9092'],
+         auto_offset_reset='earliest',
+         enable_auto_commit=True,
+         group_id=cliente.nome) #passar nome do usuario
 
-_topics =[]
-_topics.append(cliente.nome)
-cliente.consumer = KafkaConsumer(
-     bootstrap_servers=['localhost:9092'],
-     auto_offset_reset='earliest',
-     enable_auto_commit=True,
-     group_id=cliente.nome) #passar nome do usuario
-
-cliente.consumer.subscribe(cliente.topics)  
-threading.Thread(target=envia, args=(client, )).start()
-msg_recebidas = mensagens()
-for message in cliente.consumer:
-    message_payload = str(message.value.decode("utf-8")).split(",")
-    del message_payload[0]
-    del message_payload[-1]
-    if int(message_payload[0]) == 5:
-        print("Usuario ainda não existe")
-    else:
-        if(cliente.nome != message_payload[2]):
-            print (message_payload)
+    cliente.consumer.subscribe(cliente.topics)  
+    threading.Thread(target=envia, args=(client, )).start()
+    msg_recebidas = mensagens()
+    for message in cliente.consumer:
+        message_payload = str(message.value.decode("utf-8")).split(",")
+        del message_payload[0]
+        del message_payload[-1]
+        if int(message_payload[0]) == 5:
+            print("Usuario ainda não existe")
+        else:
+            if(cliente.nome != message_payload[2]):
+                print (message_payload)
 
 
-time.sleep(3000)
+    time.sleep(3000) """
