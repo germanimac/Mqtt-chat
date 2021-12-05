@@ -6,7 +6,16 @@ import threading
 import time
 from kafka import KafkaConsumer
 from json import loads
-
+# tipo 0:mensafens privadas
+# tipo 1 mensagens grupo
+# tipo 2 
+# tipo 3
+# tipo 4 novo grupo
+# tipo 5 solicitação
+# tipo 6 responde solicitação
+# tipo 7 iniciar usuario
+# tipo 
+# tipo 
 topics = []
 bloqueados =  []
 
@@ -30,7 +39,7 @@ class Chat_mqtt():
         self.pubtop = ""
         self.subtop = ""
         self.conversas = [[]]
-
+        self.consumer = None
     def my_user(self, nome):
         self.nome = nome
         self.client = mqtt.Client(self.nome)
@@ -51,13 +60,9 @@ class Chat_mqtt():
     
     def novo_grupo(self, nome):
         if(nome in self.grupos):
-            self.pubtop = nome
             return 0
         else:
-            self.subtop = nome
-            self.pubtop = nome
             self.adiciona_grupo(nome)
-            self.client.subscribe(nome)
             return 1
 
     def novo_contato(self, nome):
@@ -103,17 +108,21 @@ class Chat_mqtt():
         self.bloqueados.append(contato)
     
     def adiciona_contato(self, contato):
-        self.topics.append(contato)
+        
         self.contatos.append(contato)
-        cont = conversa(contato)
-        self.conversas.append(cont)
+        
 
     def adiciona_grupo(self, grupo):
         self.topics.append(grupo)
         self.grupos.append(grupo)
-        grup = conversa(grupo)
-        self.conversas.append(grup)
-        #self.client.subscribe(grupo)
+        
+        novo_grupo = mensagens()
+        novo_grupo.destinatario = self.nome
+        novo_grupo.tipo = 4
+        novo_grupo.remetente = grupo
+        self.send_msg(novo_grupo,"", 4)
+        self.consumer.subscribe(self.topics)
+        
     
     def deleta_grupo_contato(self, nome):
         if nome in self.topics:
@@ -194,7 +203,7 @@ def envia(client):
     msg.remetente = cliente.nome
     dest = input("Novo Contato:")
     msg.destinatario =dest
-    cliente.novo_chat(dest)
+    cliente.novo_chat(dest,"grupo")
     while True:
         msg.mensagem = input("Enter Message:")
         cliente.send_msg(msg,"pad")
@@ -212,23 +221,24 @@ cliente.inicia()
 
 _topics =[]
 _topics.append(cliente.nome)
-consumer = KafkaConsumer(
-    cliente.nome,
+cliente.consumer = KafkaConsumer(
      bootstrap_servers=['localhost:9092'],
      auto_offset_reset='earliest',
      enable_auto_commit=True,
-     group_id='my-group') #passar nome do usuario
-     
+     group_id=cliente.nome) #passar nome do usuario
+
+cliente.consumer.subscribe(cliente.topics)  
 threading.Thread(target=envia, args=(client, )).start()
 msg_recebidas = mensagens()
-for message in consumer:
+for message in cliente.consumer:
     message_payload = str(message.value.decode("utf-8")).split(",")
     del message_payload[0]
     del message_payload[-1]
     if int(message_payload[0]) == 5:
         print("Usuario ainda não existe")
     else:
-        print (message_payload)
+        if(cliente.nome != message_payload[2]):
+            print (message_payload)
 
 
 time.sleep(3000)
