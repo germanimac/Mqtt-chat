@@ -49,6 +49,10 @@ class mqtt_bridge():
                 print(usuarios)
                 data = {'message': ','+msg.msg_to_str()+','}
                 self.producer.send(msg.remetente, value=data)
+            else:
+                print(usuarios)
+                data = {'message': ','+msg.msg_to_str()+','}
+                self.producer.send(msg.destinatario, value=data)
         else: ##envia mensagem
             data = {'message': ','+msg.msg_to_str()+','}
             self.producer.send(msg.destinatario, value=data)

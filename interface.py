@@ -2,6 +2,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from message_struct import Chat_mqtt
 from Screen1 import screen1
 from Screen2 import screen2
+from aceitar import solicitacao
 #from Screen3 import screen3
 from PyQt5.QtCore import QObject, QThread, pyqtSignal
 from kafka.admin import client
@@ -12,9 +13,10 @@ import threading
 import time
 from kafka import KafkaConsumer
 from json import loads
+import sqlite3 
 
 import sys
-
+from PyQt5.QtWidgets import QApplication, QListWidget, QListWidgetItem, QMainWindow, QLabel
 from PyQt5.QtCore import QAbstractListModel, QMargins, QPoint, QRectF, QSize, Qt
 from PyQt5.QtGui import QColor, QPainter, QTextDocument, QTextOption
 from PyQt5.QtCore import QThread
@@ -31,6 +33,7 @@ from PyQt5.QtWidgets import (
     
 )
 
+#cur.execute("INSERT INTO stocks VALUES (?, ?, ?)",("leo","joao", "hahahaha lalal"))
 USER_ME = 0
 USER_THEM = 1
 
@@ -154,6 +157,7 @@ class screen3(object):
         self.dest =""
         self.user=user
         self.tipo_conversa =""
+        self.contatos = []
     def setupUi(self, MainWindow): #screen 3
 
         MainWindow.setObjectName("MainWindow")              #tela principal            
@@ -161,6 +165,7 @@ class screen3(object):
         self.centralwidget = QtWidgets.QWidget(MainWindow)  #tela principal                        
         self.centralwidget.setObjectName("centralwidget")   #tela principal                            
 
+        
         self.textEdit = QtWidgets.QTextEdit(MainWindow)             #caixa de mensagem
         self.textEdit.setGeometry(QtCore.QRect(20, 370, 581, 71))   #caixa de mensagem            
         self.textEdit.setObjectName("textEdit")                     #caixa de mensagem                
@@ -188,11 +193,13 @@ class screen3(object):
         self.model = MessageModel()                                # mensagens 
         self.messages.setModel(self.model)
 
-        self.scrollArea.setWidget(self.messages)                    
-
-        self.listView = QtWidgets.QListView(MainWindow)               #Lista de Conversas                          
-        self.listView.setGeometry(QtCore.QRect(630, 21, 150, 291))    #Lista de Conversas                      
-        self.listView.setObjectName("listView")                       #Lista de Conversas  
+        #self.scrollArea.setWidget(self.messages)                    
+    
+        
+        self.listWidget = QtWidgets.QListWidget(MainWindow)
+        self.listWidget.setGeometry(QtCore.QRect(630, 21, 150, 291))
+        self.listWidget.setObjectName("listWidget")
+        index = 0
 
         self.retranslateUi(MainWindow, self.user)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
@@ -209,7 +216,49 @@ class screen3(object):
         self.Envio.clicked.connect(self.enviar)                 #click chama metodo enviar
 
         self.textEdit.setPlaceholderText(_translate("MainWindow", "Digite a mensagem que deseja enviar")) #define placeholder 
-        self.runLongTask()  # chama metodo 
+        self.runLongTask()  # chama metodo
+
+        self.listWidget.itemSelectionChanged.connect(self.selectionChanged) 
+        
+    
+    def rolagem(self):
+        print("rolou")
+        lambda x,y: self.bar.setValue(0)
+    def selectionChanged(self):
+        widget = self.scrollArea.takeWidget()
+        self.messages = QListView()                                # mensagens                                     
+        self.messages.setGeometry(QtCore.QRect(0, 0, 579, 329))    # mensagens                             
+        self.messages.setItemDelegate(MessageDelegate())           # mensagens                         
+        self.model = MessageModel()                                # mensagens 
+        self.messages.setModel(self.model)
+        self.scrollArea.setWidget(self.messages)
+        contato = [item.text() for item in self.listWidget.selectedItems()]
+        print(contato[0])
+        self.dest =contato[0]
+        if contato[0] in self.user.grupos:
+            self.user.novo_chat(contato[0],"grupo")
+            self.tipo_conversa = "grupo"
+            for row in cur.execute("SELECT * FROM stocks WHERE dest =:dd",{"dd":self.dest}):
+                print(row)
+                if row[0] != self.name:
+                    self.model.add_message(USER_THEM,"("+row[0]+")\n" +row[2])
+                else:
+                    self.model.add_message(USER_ME, row[2])
+        else:
+            self.user.novo_chat(contato[0],"privado")
+            self.tipo_conversa = "privado"
+            print("aqui")
+            for row in cur.execute("SELECT * FROM stocks WHERE (dest =:dd AND remetente =:rr) OR (dest =:df AND remetente =:rf)",{"dd":self.name, "rr":self.dest,"df":self.dest, "rf":self.name}):
+                print(row)
+                if row[0] != self.name:
+                    self.model.add_message(USER_THEM,row[2])
+                else:
+                    self.model.add_message(USER_ME, row[2])
+        
+        
+            
+
+
         
     def runLongTask(self): #este método é responsável por criar e executar a thread consumidora do kafka
         # Step 2: Create a QThread object
@@ -227,18 +276,39 @@ class screen3(object):
            
     def reportProgress(self, message): #metodo que le informações consumidas do kafka
         message_payload =message.split(",")
+        print(message_payload )
         del message_payload[0]
         del message_payload[-1]
         
         if int(message_payload[0]) == 5:
-                print("Usuario ainda não existe")
+                ui.setupUi(Dialog1, message_payload[2])
+                Dialog1.exec_()
+                if ui.resposta == "aceitar":
+                    self.user.adiciona_contato(message_payload[2])
+                    self.atualiza_lista_contatos()
+                else:
+                    self.user.bloqueia(message_payload[2])
+
         else:
             if(cliente.nome != message_payload[2]):
                 print(message_payload)
-                if int(message_payload[0]) == 0:
+                print(message_payload[0])
+                print(self.dest)
+                if message_payload[0] == '0' and message_payload[2] not in self.user.bloqueados and message_payload[2] == self.dest:
                     self.model.add_message(USER_THEM,message_payload[1]) #PRINTA NA TELA
-                elif int(message_payload[0]) == 1:
+                    print("privadaa")
+                    cur.execute("INSERT INTO stocks VALUES (? ,? ,?)",(message_payload[2] ,message_payload[3] ,message_payload[1]))
+                    con.commit()
+                elif message_payload[0] == '1' and message_payload[3] == self.dest:
+                    print("GRupo")
                     self.model.add_message(USER_THEM,"("+message_payload[2]+")\n" +message_payload[1]) #PRINTA NA TELA
+                    cur.execute("INSERT INTO stocks VALUES (? ,? ,?)",(message_payload[2] ,message_payload[3] ,message_payload[1]))
+                    con.commit()
+                elif message_payload[2] not in self.user.bloqueados:
+                    print("Aquiiii")
+                    cur.execute("INSERT INTO stocks VALUES (? ,? ,?)",(message_payload[2] ,message_payload[3] ,message_payload[1]))
+                    con.commit()
+                
 
 
     def enviar(self):  # envia mensagem
@@ -251,11 +321,16 @@ class screen3(object):
             if len(msg.mensagem) != 0:
                 cliente.send_msg(msg,"",1) #ENVIA MENSAGEM
                 self.model.add_message(USER_ME, msg.mensagem) #PRINTA NA TELA
+                cur.execute("INSERT INTO stocks VALUES (? ,? ,?) ",(msg.remetente ,msg.destinatario ,msg.mensagem))
+                con.commit()
+
         else:
             msg.tipo = 0
             if len(msg.mensagem) != 0:
                 cliente.send_msg(msg,"",0) #ENVIA MENSAGEM
                 self.model.add_message(USER_ME, msg.mensagem) #PRINTA NA TELA
+                cur.execute("INSERT INTO stocks VALUES (? ,? ,?) ",(msg.remetente ,msg.destinatario ,msg.mensagem))
+                con.commit()
   
     def adicionar(self):
         Dialog.exec_()  #Executa screen2
@@ -264,6 +339,21 @@ class screen3(object):
             self.user.novo_chat(tela2.nova_conversa[1],tela2.nova_conversa[0]) #inicia conversa com o nome [1] e tipo [0]
             self.dest = tela2.nova_conversa[1]  #salva nome da conversa no atributo dest
             self.tipo_conversa = tela2.nova_conversa[0]
+            self.atualiza_lista_contatos()
+        
+    def atualiza_lista_contatos(self):
+        for x in self.user.contatos:
+            if x not in self.contatos:
+                item = QListWidgetItem(x)
+                item.setSizeHint(QSize(-1, 50))
+                self.listWidget.addItem(item)
+                self.contatos.append(x)
+        for x in self.user.grupos:
+            if x not in self.contatos:
+                item = QListWidgetItem(x)
+                item.setSizeHint(QSize(-1, 50))
+                self.listWidget.addItem(item)
+                self.contatos.append(x)
 
 def on_connect(client,userdata,flags,rc):# called when the broker responds to our connection request
     print("Connected - rc:",rc)
@@ -305,6 +395,17 @@ if __name__ == "__main__":
     tela2 = screen2() #decla objetos para a screen2 (iniciar novas conversas)
     tela2.setupUi(Dialog)   #decla objetos para a screen2 (iniciar novas conversas)
     
+    # Insert a row of data
+    
+    # Save (commit) the changes
+    
+    
+    # We can also close the connection if we are done with it.
+    # Just be sure any changes have been committed or they will be lost.
+    
+    Dialog1 = QtWidgets.QDialog()
+    ui = solicitacao()
+
     cliente = Chat_mqtt()                           #                                
     cliente.my_user(nome)                           #                                
     cliente.client.on_subscribe = on_subscribe      #  Inicia cliente Mqtt                         
@@ -313,7 +414,14 @@ if __name__ == "__main__":
     cliente.client.on_message = on_message          ##                      
     cliente.client.connect("localhost",1883)        ##                        
     cliente.inicia()                                #
-    
+    con = sqlite3.connect(nome+".db")
+    cur = con.cursor()
+
+    # Create table
+    try:
+        cur.execute("CREATE TABLE stocks(remetente text, dest text, mensagem text)")
+    except:
+        pass
     cliente.consumer = KafkaConsumer(                   #                        
          bootstrap_servers=['localhost:9092'],          #    Inicia o consumidor do kaka        
          auto_offset_reset='earliest',                  #    
@@ -325,4 +433,4 @@ if __name__ == "__main__":
     tela3.setupUi(MainWindow)   #Declara e Inicia screen 3                
     tela3.name = nome           #        
     app.exec_()                 #
-    
+    con.close()
