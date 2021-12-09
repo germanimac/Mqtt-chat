@@ -308,6 +308,8 @@ class screen3(object):
                     print("Aquiiii")
                     cur.execute("INSERT INTO stocks VALUES (? ,? ,?)",(message_payload[2] ,message_payload[3] ,message_payload[1]))
                     con.commit()
+                else:
+                    print("ta caido aqui")
                 
 
 
@@ -316,10 +318,16 @@ class screen3(object):
         msg.remetente = self.name # remetente = atributo nome
         msg.destinatario = self.dest # destinatario = atributo dest
         msg.mensagem = (self.textEdit.toPlainText())  #le texto no campo do texto
-        if self.tipo_conversa == "grupo": #caso conversa for de grupo
+        print("destino:"+self.dest)
+        print("Mensagem:")
+        print(msg.mensagem)
+        if self.dest in self.user.grupos: #caso conversa for de grupo
             msg.tipo = 1                    #seta o tipo pra 1
             if len(msg.mensagem) != 0:
-                cliente.send_msg(msg,"",1) #ENVIA MENSAGEM
+                print("mandou pro grupo")
+                mensagem =str(msg.tipo) + "," + msg.mensagem +"," + self.name +"," + self.dest
+                print(mensagem)
+                self.user.client.publish("mqttBridge",mensagem)
                 self.model.add_message(USER_ME, msg.mensagem) #PRINTA NA TELA
                 cur.execute("INSERT INTO stocks VALUES (? ,? ,?) ",(msg.remetente ,msg.destinatario ,msg.mensagem))
                 con.commit()
@@ -327,17 +335,22 @@ class screen3(object):
         else:
             msg.tipo = 0
             if len(msg.mensagem) != 0:
-                cliente.send_msg(msg,"",0) #ENVIA MENSAGEM
+                print("mandou privado")
+                mensagem =str(msg.tipo) + "," + msg.mensagem +"," + self.name +"," + self.dest
+                print(mensagem)
+                self.user.client.publish("mqttBridge",mensagem)
+                #self.user.send_msg(msg,"",0) #ENVIA MENSAGEM
                 self.model.add_message(USER_ME, msg.mensagem) #PRINTA NA TELA
                 cur.execute("INSERT INTO stocks VALUES (? ,? ,?) ",(msg.remetente ,msg.destinatario ,msg.mensagem))
                 con.commit()
+        
   
     def adicionar(self):
         Dialog.exec_()  #Executa screen2
         print(tela2.nova_conversa) #printa tipo de conversa e o nome
         if tela2.nova_conversa[0] != "null":
             self.user.novo_chat(tela2.nova_conversa[1],tela2.nova_conversa[0]) #inicia conversa com o nome [1] e tipo [0]
-            self.dest = tela2.nova_conversa[1]  #salva nome da conversa no atributo dest
+            #self.dest = tela2.nova_conversa[1]  #salva nome da conversa no atributo dest
             self.tipo_conversa = tela2.nova_conversa[0]
             self.atualiza_lista_contatos()
         

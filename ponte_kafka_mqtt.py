@@ -26,14 +26,14 @@ class mqtt_bridge():
         self.mqtt_client.subscribe("mqttBridge")      #configura mqtt               
         self.mqtt_client.on_message = self.on_message #configura mqtt                    
         while True:
-            pass
+            x =input(":")
         self.mqtt_client.loop_end()
 
     def on_message(self, client, userdata, message): #mensagens recebidas
         msg = mensagens()
         msg_payload = message.payload.decode("utf-8")
         msg.str_to_msg(msg_payload)
-        
+        print(msg_payload)
         if msg.tipo == 7 or msg.tipo ==4: #se msg.tipo == 7 quer dizer que usuario esta entrando no programa
             try:  # tenta criar um tópico kafta pro usuario, se ja houver, não faz nada
                 if msg.remetente not in usuarios: 
